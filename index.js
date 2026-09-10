@@ -83,36 +83,28 @@ async function main(){
       }
 
       if (!success) {
-        // Not every platform and architecture has a pre-built binary: there is
-        // no linux-arm64 release asset, so on those runners every download above
-        // fails. install.sh makes no assumption about the platform beyond a
-        // POSIX shell and a Fortran compiler, so the same fallback that serves
-        // macOS ARM64 serves Linux ARM64 too. See issue #60.
-        if ((process.platform === 'darwin' || process.platform === 'linux') && arch === 'arm64') {
-          console.log(`No pre-built ${process.platform}-${arch} binary found, falling back to building from source`);
+        // Every download above failed, so it is build from source or nothing --
+        // there is no third outcome where the action succeeds. Don't gate that on
+        // a platform list: install.sh assumes only a POSIX shell and a Fortran
+        // compiler, and hard-coding which platforms lack a release asset means
+        // this needs editing again the next time that set changes. See issue #60.
+        console.log(`No pre-built ${process.platform}-${arch} binary found, falling back to building from source`);
 
-          // For older versions without working install.sh, we can't build from source
-          const versionNum = fpmVersion.replace('v', '');
-          const versionParts = versionNum.split('.').map(Number);
-          const isOldVersion = versionParts[0] === 0 && versionParts[1] < 9;
+        // For older versions without working install.sh, we can't build from source
+        const versionNum = fpmVersion.replace('v', '');
+        const versionParts = versionNum.split('.').map(Number);
+        const isOldVersion = versionParts[0] === 0 && versionParts[1] < 9;
 
-          if (isOldVersion) {
-            core.setFailed(
-              `Building fpm ${fpmVersion} from source is not supported on ${process.platform} ${arch}.\n` +
-              'Please use fpm v0.9.0 or later, which has a working install.sh script.\n' +
-              'For example, set fpm-version to "v0.9.0", "v0.10.1" or "latest".'
-            );
-            return;
-          }
-
-          await installFromSource(fpmVersion, fpmRepo);
+        if (isOldVersion) {
+          core.setFailed(
+            `Building fpm ${fpmVersion} from source is not supported on ${process.platform} ${arch}.\n` +
+            'Please use fpm v0.9.0 or later, which has a working install.sh script.\n' +
+            'For example, set fpm-version to "v0.9.0", "v0.10.1" or "latest".'
+          );
           return;
         }
 
-        // Without this return, execution carried on to path.dirname(fpmPath)
-        // with fpmPath still undefined, and the real reason was buried under a
-        // second, unrelated error: 'The "path" argument must be of type string'.
-        core.setFailed(`Error while trying to fetch fpm ${fpmVersion} for ${process.platform}-${arch} - no release asset was found for this platform and it could not be built from source.`);
+        await installFromSource(fpmVersion, fpmRepo);
         return;
       }
     }
